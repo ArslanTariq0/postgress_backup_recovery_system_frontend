@@ -5,6 +5,10 @@ import StatusBadge from "../StatusBadge.jsx";
 export default function RestoreJobs({ refreshKey }) {
   const [jobs, setJobs] = useState([]);
   const [error, setError] = useState("");
+  const [expandedId, setExpandedId] = useState(null);
+  function toggleError(id) {
+    setExpandedId((current) => (current === id ? null : id));
+  }
 
   async function load() {
     try {
@@ -40,13 +44,14 @@ export default function RestoreJobs({ refreshKey }) {
         {jobs.length === 0 ? (
           <div className="empty">No restore jobs yet — start one from the Backups tab.</div>
         ) : (
-          <table>
+                    <table>
             <thead>
               <tr>
                 <th>Target</th>
                 <th>Status</th>
                 <th>Started</th>
                 <th>Completed</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
@@ -54,24 +59,36 @@ export default function RestoreJobs({ refreshKey }) {
                 .slice()
                 .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
                 .map((j) => (
-                  <tr key={j.restore_job_id}>
-                    <td>{j.target_db_name || j.target_connection_id || "—"}</td>
-                    <td><StatusBadge status={j.status} /></td>
-                    <td>{j.started_at ? new Date(j.started_at).toLocaleString() : "—"}</td>
-                    <td>{j.completed_at ? new Date(j.completed_at).toLocaleString() : "—"}</td>
-                  </tr>
+                  <React.Fragment key={j.restore_job_id}>
+                    <tr>
+                      <td>{j.target_db_name || j.target_connection_id || "—"}</td>
+                      <td><StatusBadge status={j.status} /></td>
+                      <td>{j.started_at ? new Date(j.started_at).toLocaleString() : "—"}</td>
+                      <td>{j.completed_at ? new Date(j.completed_at).toLocaleString() : "—"}</td>
+                      <td>
+                        {j.status === "failed" && j.error_message && (
+                          <button className="link-btn" onClick={() => toggleError(j.restore_job_id)}>
+                            {expandedId === j.restore_job_id ? "hide error" : "view error"}
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                    {expandedId === j.restore_job_id && (
+                      <tr>
+                        <td colSpan={5}>
+                          <div
+                            className="error-banner"
+                            style={{ margin: "6px 0", maxHeight: 260, overflowY: "auto", whiteSpace: "pre-wrap", fontFamily: "var(--mono)", fontSize: 12 }}
+                          >
+                            {j.error_message}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
                 ))}
             </tbody>
           </table>
-        )}
-        {jobs.some((j) => j.status === "failed" && j.error_message) && (
-          <div style={{ marginTop: 14 }}>
-            {jobs.filter((j) => j.status === "failed" && j.error_message).map((j) => (
-              <div key={j.restore_job_id} className="error-banner">
-                {j.target_db_name || j.restore_job_id}: {j.error_message}
-              </div>
-            ))}
-          </div>
         )}
       </div>
     </div>
